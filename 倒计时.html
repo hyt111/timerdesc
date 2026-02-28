@@ -1,0 +1,141 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>倒计时&日程记录系统</title>
+    <style>
+        /* 基础样式（AI生成，可自定义） */
+        body { font-family: Arial, sans-serif; max-width: 800px; margin: 0 auto; padding: 20px; background: #f5f5f5; }
+        .countdown-card { background: #fff; padding: 20px; border-radius: 8px; margin-bottom: 20px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
+        .schedule-list { background: #fff; padding: 20px; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
+        .btn { padding: 8px 16px; background: #007bff; color: #fff; border: none; border-radius: 4px; cursor: pointer; }
+        .input-item { margin: 10px 0; padding: 8px; width: 100%; box-sizing: border-box; }
+    </style>
+</head>
+<body>
+    <div class="countdown-card">
+        <h2>重点倒计时</h2>
+        <div id="mainCountdown">0天0时0分0秒</div>
+    </div>
+
+    <div class="schedule-list">
+        <h2>日程记录</h2>
+        <button class="btn" onclick="openAddModal()">添加日程/倒计时</button>
+        <div id="scheduleList"></div>
+    </div>
+
+    <!-- 添加日程的弹窗（隐藏） -->
+    <div id="addModal" style="display: none; position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); background: #fff; padding: 20px; border-radius: 8px; box-shadow: 0 0 10px rgba(0,0,0,0.2);">
+        <h3>添加日程</h3>
+        <input type="text" class="input-item" id="titleInput" placeholder="日程标题（如：生日）">
+        <input type="datetime-local" class="input-item" id="dateInput" placeholder="目标日期">
+        <textarea class="input-item" id="noteInput" placeholder="备注（可选）"></textarea>
+        <button class="btn" onclick="saveSchedule()">保存</button>
+        <button class="btn" style="background: #6c757d;" onclick="closeAddModal()">取消</button>
+    </div>
+
+    <script>
+        // 本地存储key
+        const STORAGE_KEY = 'schedule_list';
+        // 加载日程列表
+        function loadSchedules() {
+            const data = localStorage.getItem(STORAGE_KEY);
+            return data ? JSON.parse(data) : [];
+        }
+
+        // 保存日程
+        function saveSchedule() {
+            const title = document.getElementById('titleInput').value;
+            const targetDate = document.getElementById('dateInput').value;
+            const note = document.getElementById('noteInput').value;
+            if (!title || !targetDate) {
+                alert('请填写标题和日期！');
+                return;
+            }
+            const schedules = loadSchedules();
+            schedules.push({ id: Date.now(), title, targetDate, note });
+            localStorage.setItem(STORAGE_KEY, JSON.stringify(schedules));
+            renderSchedules();
+            closeAddModal();
+            updateMainCountdown();
+        }
+
+        // 渲染日程列表
+        function renderSchedules() {
+            const schedules = loadSchedules();
+            const listEl = document.getElementById('scheduleList');
+            listEl.innerHTML = '';
+            schedules.forEach(item => {
+                const countdown = calculateCountdown(item.targetDate);
+                const itemEl = document.createElement('div');
+                itemEl.style.padding = '10px 0';
+                itemEl.style.borderBottom = '1px solid #eee';
+                itemEl.innerHTML = `
+                    <h4>${item.title}</h4>
+                    <p>剩余时间：${countdown}</p>
+                    <p>备注：${item.note || '无'}</p>
+                    <button class="btn" style="background: #dc3545; margin-right: 8px;" onclick="deleteSchedule(${item.id})">删除</button>
+                `;
+                listEl.appendChild(itemEl);
+            });
+        }
+
+        // 计算倒计时
+        function calculateCountdown(targetDate) {
+            const now = new Date();
+            const target = new Date(targetDate);
+            const diff = target - now;
+            if (diff <= 0) return '已到期';
+            const days = Math.floor(diff / (1000 * 60 * 60 * 24));
+            const hours = Math.floor((diff % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
+            const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
+            const seconds = Math.floor((diff % (1000 * 60)) / 1000);
+            return `${days}天${hours}时${minutes}分${seconds}秒`;
+        }
+
+        // 更新重点倒计时（取第一个日程）
+        function updateMainCountdown() {
+            const schedules = loadSchedules();
+            if (schedules.length === 0) {
+                document.getElementById('mainCountdown').textContent = '暂无倒计时';
+                return;
+            }
+            const firstSchedule = schedules[0];
+            const countdown = calculateCountdown(firstSchedule.targetDate);
+            document.getElementById('mainCountdown').textContent = countdown;
+        }
+
+        // 删除日程
+        function deleteSchedule(id) {
+            let schedules = loadSchedules();
+            schedules = schedules.filter(item => item.id !== id);
+            localStorage.setItem(STORAGE_KEY, JSON.stringify(schedules));
+            renderSchedules();
+            updateMainCountdown();
+        }
+
+        // 弹窗操作
+        function openAddModal() {
+            document.getElementById('addModal').style.display = 'block';
+        }
+
+        function closeAddModal() {
+            document.getElementById('addModal').style.display = 'none';
+            // 清空输入框
+            document.getElementById('titleInput').value = '';
+            document.getElementById('dateInput').value = '';
+            document.getElementById('noteInput').value = '';
+        }
+
+        // 初始化
+        renderSchedules();
+        updateMainCountdown();
+        // 每秒更新倒计时
+        setInterval(() => {
+            renderSchedules();
+            updateMainCountdown();
+        }, 1000);
+    </script>
+</body>
+</html>
