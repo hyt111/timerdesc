@@ -1,0 +1,159 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>API视频流直接加载页面（自动播放）</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        body {
+            max-width: 1200px;
+            margin: 20px auto;
+            padding: 0 20px;
+            font-family: "Microsoft YaHei", Arial, sans-serif;
+            text-align: center;
+        }
+        .container {
+            display: inline-block;
+            text-align: left;
+            margin: 0 auto;
+            padding: 10px;
+        }
+        .btn {
+            padding: 10px 20px;
+            background-color: #409eff;
+            color: #fff;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 16px;
+            margin: 0 auto;
+            display: block;
+        }
+        .btn:hover {
+            background-color: #66b1ff;
+        }
+        .status {
+            padding: 12px;
+            border-radius: 6px;
+            font-size: 14px;
+            margin: 15px 0;
+            text-align: center;
+        }
+        .loading {
+            background-color: #f0f9ff;
+            color: #66b1ff;
+        }
+        .success {
+            background-color: #f0f9ff;
+            color: #67c23a;
+        }
+        .error {
+            background-color: #fef0f0;
+            color: #f56c6c;
+        }
+        /* 视频居中+缩小 */
+        video {
+            width: 100%;
+            max-width: 480px;
+            height: auto;
+            margin: 10px auto;
+            display: block;
+            border-radius: 8px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+        }
+        .tip {
+            color: #909399;
+            font-size: 12px;
+            margin-top: 8px;
+            text-align: center;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <button class="btn" id="requestBtn">加载并自动播放视频</button>
+        <div class="status loading" id="status">点击按钮加载视频...</div>
+        <video id="videoPlayer" controls muted style="display: none;"></video>
+        <div class="tip">提示：浏览器限制需静音自动播放，可手动开启音量</div>
+    </div>
+
+    <script>
+        // DOM元素
+        const requestBtn = document.getElementById('requestBtn');
+        const statusEl = document.getElementById('status');
+        const videoPlayer = document.getElementById('videoPlayer');
+
+        // API地址
+        const API_URL = "https://api.lolimi.cn/API/xjj/xjj";
+
+        // 加载并自动播放视频
+        async function loadAndPlayVideo() {
+            // 重置状态
+            statusEl.className = 'status loading';
+            statusEl.textContent = '正在请求视频流...';
+            videoPlayer.style.display = 'none';
+            videoPlayer.src = '';
+
+            try {
+                // 发起请求
+                const response = await fetch(API_URL, {
+                    method: 'GET',
+                    headers: {
+                        'Accept': 'video/mp4, */*',
+                        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
+                    }
+                });
+
+                if (!response.ok) {
+                    throw new Error(`请求失败，状态码：${response.status}`);
+                }
+
+                // 转为Blob并创建临时URL
+                const videoBlob = await response.blob();
+                const videoUrl = URL.createObjectURL(videoBlob);
+
+                // 设置视频源并显示
+                videoPlayer.src = videoUrl;
+                videoPlayer.style.display = 'block';
+                
+                // 关键：自动播放（先等待视频加载元数据）
+                videoPlayer.onloadedmetadata = async () => {
+                    try {
+                        // 尝试自动播放（静音状态下浏览器允许）
+                        await videoPlayer.play();
+                        statusEl.className = 'status success';
+                        statusEl.textContent = '视频加载成功，已自动播放！';
+                    } catch (playErr) {
+                        // 兼容极少数浏览器：用户交互后再播放
+                        statusEl.textContent = '视频加载成功，请点击播放按钮开始播放';
+                        console.warn('自动播放失败（浏览器限制）：', playErr);
+                    }
+                };
+
+                // 释放临时URL
+                videoPlayer.onended = () => {
+                    URL.revokeObjectURL(videoUrl);
+                };
+
+            } catch (error) {
+                console.error('视频加载失败：', error);
+                statusEl.className = 'status error';
+                statusEl.textContent = `加载失败：${error.message}`;
+            }
+        }
+
+        // 按钮点击触发
+        requestBtn.addEventListener('click', loadAndPlayVideo);
+
+        // 可选：页面加载后自动触发（取消注释即可）
+        // window.onload = () => {
+        //     loadAndPlayVideo();
+        // };
+    </script>
+</body>
+</html>
